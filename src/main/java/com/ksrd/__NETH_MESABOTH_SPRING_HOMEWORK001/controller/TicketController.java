@@ -79,6 +79,19 @@ public class TicketController {
   @Operation(summary = "Create a new ticket")
   @PostMapping
   public ResponseEntity<ApiResponse<Map<String, Object>>> createTicket(@RequestBody TicketRequest request) {
+
+    if (request.getPrice() <= 0) {
+      ApiResponse<Map<String, Object>> response = new ApiResponse<>(
+              false,
+              "price cannot be smaller or equal 0",
+              HttpStatus.BAD_REQUEST,
+              null,
+              LocalDateTime.now()
+      );
+
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     Ticket ticket = new Ticket(ATOMIC_LONG.getAndIncrement(), request.getPassengerName(), request.getTravelDate(), request.getSourceStation(), request.getDestinationStation(), request.getPrice(), request.isPaymentStatus(), request.getTicketStatus(), request.getSeatNumber());
 
     TICKETS.add(ticket);
@@ -190,8 +203,22 @@ public class TicketController {
   @PutMapping("/{ticket-id}")
   public ResponseEntity<ApiResponse<Map<String, Object>>> updateTicketById(@PathVariable("ticket-id") Long ticketId, @RequestBody TicketRequest request) {
 
+    List<Ticket> updateTicket = new ArrayList<>();
+
+    if (request.getPrice() <= 0) {
+      ApiResponse<Map<String, Object>> response = new ApiResponse<>(
+              false,
+              "price cannot be smaller or equal 0",
+              HttpStatus.BAD_REQUEST,
+              null,
+              LocalDateTime.now()
+      );
+
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     for (Ticket ticket : TICKETS) {
-      if (ticket.getTicketId().equals(ticketId)) {
+      if (ticket.getTicketId().equals(ticketId) && request.getPrice() > 0) {
         ticket.setPassengerName(request.getPassengerName());
         ticket.setTravelDate(request.getTravelDate());
         ticket.setSourceStation(request.getSourceStation());
@@ -201,31 +228,36 @@ public class TicketController {
         ticket.setTicketStatus(request.getTicketStatus());
         ticket.setSeatNumber(request.getSeatNumber());
 
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("items", ticket);
-        ApiResponse<Map<String, Object>> response = new ApiResponse<>(
-                true,
-                "Ticket updated successfully",
-                HttpStatus.OK,
-                payload,
-                LocalDateTime.now()
-        );
+        updateTicket.add(ticket);
 
-        return ResponseEntity.status(HttpStatus.OK).body(response);
-      } else {
-        ApiResponse<Map<String, Object>> response = new ApiResponse<>(
-                false,
-                "no ticket found with ID : " + ticketId,
-                HttpStatus.NOT_FOUND,
-                null,
-                LocalDateTime.now()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
 
       }
     }
 
-    return null;
+    if (updateTicket.isEmpty()) {
+      ApiResponse<Map<String, Object>> response = new ApiResponse<>(
+              false,
+              "no ticket found with ID : " + ticketId,
+              HttpStatus.NOT_FOUND,
+              null,
+              LocalDateTime.now()
+      );
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+
+    }
+
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("items", updateTicket);
+    ApiResponse<Map<String, Object>> response = new ApiResponse<>(
+            true,
+            "Ticket updated successfully",
+            HttpStatus.OK,
+            payload,
+            LocalDateTime.now()
+    );
+
+    return ResponseEntity.status(HttpStatus.OK).body(response);
+
   }
 
   @Operation(summary = "Delete a ticket by ID")
@@ -265,11 +297,25 @@ public class TicketController {
     List<Ticket> tickets = new ArrayList<>();
 
     for (TicketRequest request : requests) {
-      Ticket ticket = new Ticket(ATOMIC_LONG.getAndIncrement(), request.getPassengerName(), request.getTravelDate(), request.getSourceStation(), request.getDestinationStation(), request.getPrice(), request.isPaymentStatus(), request.getTicketStatus(), request.getSeatNumber());
-      TICKETS.add(ticket);
-      tickets.add(ticket);
+      if (request.getPrice() > 0) {
+        Ticket ticket = new Ticket(ATOMIC_LONG.getAndIncrement(), request.getPassengerName(), request.getTravelDate(), request.getSourceStation(), request.getDestinationStation(), request.getPrice(), request.isPaymentStatus(), request.getTicketStatus(), request.getSeatNumber());
+        TICKETS.add(ticket);
+        tickets.add(ticket);
+      }
+    }
+
+    if (tickets.isEmpty()) {
+      ApiResponse<Map<String, Object>> response = new ApiResponse<>(
+              false,
+              "price cannot be smaller or equal 0",
+              HttpStatus.BAD_REQUEST,
+              null,
+              LocalDateTime.now()
+      );
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
 
     }
+
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("items", tickets);
     ApiResponse<Map<String, Object>> response = new ApiResponse<>(
